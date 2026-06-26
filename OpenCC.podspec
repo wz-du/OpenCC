@@ -1,21 +1,20 @@
 Pod::Spec.new do |s|
   s.name = "OpenCC"
-  s.version = "0.3.3"
+  s.version = "0.3.4"
   s.summary = "Open Chinese Convert"
   s.description = <<-DESC
 The Pod spec wraps OpeCC (Open Chinese Convert) that helps you to convert Traditianl Chinese
 to Simplified Chinese, and vise versa.
                        DESC
 
-  s.homepage = "https://github.com/zonble/OpenCC"
+  s.homepage = "https://github.com/wz-du/OpenCC"
   s.license = { :type => "MIT", :file => "LICENSE" }
   s.author = { "zonble" => "zonble@gmail.com" }
-  s.source = { :git => "https://github.com/zonble/OpenCC.git", :tag => s.version.to_s, :submodules => true }
+  s.source = { :git => "https://github.com/wz-du/OpenCC.git", :tag => s.version.to_s, :submodules => true }
   s.social_media_url = "https://twitter.com/zonble"
 
   s.ios.deployment_target = "12.0"
   s.osx.deployment_target = "12.0"
-  s.tvos.deployment_target = "12.0"
   s.vendored_frameworks = "OpenCCBridge.xcframework"
 
   s.source_files = "SwiftOpenCC/Sources/OpenCC"
@@ -28,6 +27,6 @@ to Simplified Chinese, and vise versa.
   s.frameworks = "OpenCCBridge"
   s.swift_versions = ["5.0", "5.1", "5.5"]
   s.resource = "SwiftOpenCC/OpenCCDictionary.bundle"
-  s.prepare_command = "/bin/sh build.sh"
+  s.prepare_command = "/bin/bash build.sh"
 
 end

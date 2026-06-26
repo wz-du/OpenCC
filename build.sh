@@ -1,51 +1,181 @@
-rm -rf OpenCCBridge.xcframework
-rm -Rf build
+#!/bin/bash
 
-## iOS
+set -euo pipefail
 
-echo "Build iOS"
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_PATH="$ROOT_DIR/SwiftOpenCC/SwiftyOpenCC.xcodeproj"
+SCHEME="OpenCCBridge"
+SCHEME_PATH="$PROJECT_PATH/xcshareddata/xcschemes/$SCHEME.xcscheme"
+BUILD_DIR="$ROOT_DIR/build"
+ARCHIVES_DIR="$BUILD_DIR/archives"
+DERIVED_DATA_DIR="$BUILD_DIR/DerivedData"
+OUTPUT_PATH="$ROOT_DIR/OpenCCBridge.xcframework"
+GENERATED_SCHEME=0
 
-xcodebuild archive -project SwiftOpenCC/SwiftyOpenCC.xcodeproj -target OpenCCBridge -sdk iphoneos -arch arm64 -arch arm64e IPHONEOS_DEPLOYMENT_TARGET="12.0" SYMROOT="../build" OTHER_CFLAGS="-fembed-bitcode" BITCODE_GENERATION_MODE=bitcode ONLY_ACTIVE_ARCH=NO 2>&1
-xcodebuild archive -project SwiftOpenCC/SwiftyOpenCC.xcodeproj -target OpenCCBridge -sdk iphonesimulator -arch x86_64 -arch arm64 IPHONEOS_DEPLOYMENT_TARGET="12.0" SYMROOT="../build" OTHER_CFLAGS="-fembed-bitcode" BITCODE_GENERATION_MODE=bitcode ONLY_ACTIVE_ARCH=NO 2>&1
+rm -rf "$OUTPUT_PATH" "$BUILD_DIR"
+mkdir -p "$ARCHIVES_DIR" "$DERIVED_DATA_DIR"
 
-echo "Build iOS Done"
+cleanup() {
+  if [[ "$GENERATED_SCHEME" == "1" ]]; then
+    rm -f "$SCHEME_PATH"
+  fi
+}
 
-## macOS
+trap cleanup EXIT
 
-echo "Build macOS"
+ensure_archive_scheme() {
+  if [[ -f "$SCHEME_PATH" ]]; then
+    return
+  fi
 
-xcodebuild -project SwiftOpenCC/SwiftyOpenCC.xcodeproj -target OpenCCBridge -sdk macosx -arch x86_64 -arch arm64 MACOSX_DEPLOYMENT_TARGET="12.0" SYMROOT="../build" OTHER_CFLAGS="-fembed-bitcode" BITCODE_GENERATION_MODE=bitcode ONLY_ACTIVE_ARCH=NO 2>&1
+  mkdir -p "$(dirname "$SCHEME_PATH")"
+  GENERATED_SCHEME=1
+  cat <<'EOF' > "$SCHEME_PATH"
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme
+   LastUpgradeVersion = "9999"
+   version = "1.3">
+   <BuildAction
+      parallelizeBuildables = "YES"
+      buildImplicitDependencies = "YES">
+      <BuildActionEntries>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "SwiftyOpenCC::OpenCCBridge"
+               BuildableName = "OpenCCBridge.framework"
+               BlueprintName = "OpenCCBridge"
+               ReferencedContainer = "container:SwiftyOpenCC.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
+   </BuildAction>
+   <TestAction
+      buildConfiguration = "Debug"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      shouldUseLaunchSchemeArgsEnv = "YES">
+      <Testables>
+      </Testables>
+   </TestAction>
+   <LaunchAction
+      buildConfiguration = "Debug"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      launchStyle = "0"
+      useCustomWorkingDirectory = "NO"
+      ignoresPersistentStateOnLaunch = "NO"
+      debugDocumentVersioning = "YES"
+      debugServiceExtension = "internal"
+      allowLocationSimulation = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "SwiftyOpenCC::OpenCCBridge"
+            BuildableName = "OpenCCBridge.framework"
+            BlueprintName = "OpenCCBridge"
+            ReferencedContainer = "container:SwiftyOpenCC.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
+      <AdditionalOptions>
+      </AdditionalOptions>
+   </LaunchAction>
+   <ProfileAction
+      buildConfiguration = "Release"
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      savedToolIdentifier = ""
+      useCustomWorkingDirectory = "NO"
+      debugDocumentVersioning = "YES">
+   </ProfileAction>
+   <AnalyzeAction
+      buildConfiguration = "Debug">
+   </AnalyzeAction>
+   <ArchiveAction
+      buildConfiguration = "Release"
+      revealArchiveInOrganizer = "YES">
+   </ArchiveAction>
+</Scheme>
+EOF
+}
 
-echo "Build macOS Done"
+ensure_archive_scheme
 
-## tvOS
+archive_framework() {
+  local archive_name="$1"
+  local sdk="$2"
+  local destination="$3"
+  shift 3
 
-echo "Build tvOS"
+  echo "Build $archive_name"
 
-xcodebuild -project SwiftOpenCC/SwiftyOpenCC.xcodeproj -target OpenCCBridge -sdk appletvos -arch arm64 -arch arm64e TVOS_DEPLOYMENT_TARGET="12.0" SYMROOT="../build" OTHER_CFLAGS="-fembed-bitcode" BITCODE_GENERATION_MODE=bitcode ONLY_ACTIVE_ARCH=NO 2>&1
-xcodebuild -project SwiftOpenCC/SwiftyOpenCC.xcodeproj -target OpenCCBridge -sdk appletvsimulator -arch x86_64 -arch arm64 TVOS_DEPLOYMENT_TARGET="12.0" SYMROOT="../build" OTHER_CFLAGS="-fembed-bitcode" BITCODE_GENERATION_MODE=bitcode ONLY_ACTIVE_ARCH=NO 2>&1
+  xcodebuild archive \
+    -project "$PROJECT_PATH" \
+    -scheme "$SCHEME" \
+    -configuration Release \
+    -sdk "$sdk" \
+    -destination "$destination" \
+    -archivePath "$ARCHIVES_DIR/$archive_name.xcarchive" \
+    -derivedDataPath "$DERIVED_DATA_DIR/$archive_name" \
+    SKIP_INSTALL=NO \
+    BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+    DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \
+    ONLY_ACTIVE_ARCH=NO \
+    "$@"
+}
 
-echo "Build tvOS Done"
+framework_path() {
+  local archive_name="$1"
+  echo "$ARCHIVES_DIR/$archive_name.xcarchive/Products/Library/Frameworks/OpenCCBridge.framework"
+}
 
-/usr/libexec/Plistbuddy -c "Add :CFBundleVersion string '1.0.0'" build/Release/OpenCCBridge.framework/Info.plist
-# /usr/libexec/Plistbuddy -c "Set :CFBundleShortVersionString 1.0.0" build/Release/OpenCCBridge.framework/Info.plist
+dsym_path() {
+  local archive_name="$1"
+  echo "$ARCHIVES_DIR/$archive_name.xcarchive/dSYMs/OpenCCBridge.framework.dSYM"
+}
 
-/usr/libexec/Plistbuddy -c "Add :CFBundleVersion string '1.0.0'" build/Release-iphoneos/OpenCCBridge.framework/Info.plist
-# /usr/libexec/Plistbuddy -c "Set :CFBundleShortVersionString 1.0.0" build/Release-iphoneos/OpenCCBridge.framework/Info.plist
+ensure_bundle_version() {
+  local plist_path="$1"
 
-/usr/libexec/Plistbuddy -c "Add :CFBundleVersion string '1.0.0'" build/Release-iphonesimulator/OpenCCBridge.framework/Info.plist
-# /usr/libexec/Plistbuddy -c "Set :CFBundleShortVersionString 1.0.0" build/Release-iphonesimulator/OpenCCBridge.framework/Info.plist
+  if /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$plist_path" >/dev/null 2>&1; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion 1.0.0" "$plist_path"
+  else
+    /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string '1.0.0'" "$plist_path"
+  fi
+}
 
-/usr/libexec/Plistbuddy -c "Add :CFBundleVersion string '1.0.0'" build/Release-appletvos/OpenCCBridge.framework/Info.plist
-# /usr/libexec/Plistbuddy -c "Set :CFBundleShortVersionString 1.0.0" build/Release-appletvos/OpenCCBridge.framework/Info.plist
+archive_framework ios iphoneos "generic/platform=iOS" \
+  IPHONEOS_DEPLOYMENT_TARGET=12.0 \
+  OTHER_CFLAGS=-fembed-bitcode \
+  BITCODE_GENERATION_MODE=bitcode
 
-/usr/libexec/Plistbuddy -c "Add :CFBundleVersion string '1.0.0'" build/Release-appletvsimulator/OpenCCBridge.framework/Info.plist
-# /usr/libexec/Plistbuddy -c "Set :CFBundleShortVersionString 1.0.0" build/Release-appletvsimulator/OpenCCBridge.framework/Info.plist
+archive_framework ios-simulator iphonesimulator "generic/platform=iOS Simulator" \
+  IPHONEOS_DEPLOYMENT_TARGET=12.0 \
+  OTHER_CFLAGS=-fembed-bitcode \
+  BITCODE_GENERATION_MODE=bitcode
+
+archive_names=(ios ios-simulator)
+
+archive_framework macos macosx "generic/platform=macOS" \
+  MACOSX_DEPLOYMENT_TARGET=12.0
+archive_names+=(macos)
+
+for archive_name in "${archive_names[@]}"; do
+  ensure_bundle_version "$(framework_path "$archive_name")/Info.plist"
+done
+
+xcframework_args=()
+for archive_name in "${archive_names[@]}"; do
+  xcframework_args+=(-framework "$(framework_path "$archive_name")")
+  if [[ -d "$(dsym_path "$archive_name")" ]]; then
+    xcframework_args+=(-debug-symbols "$(dsym_path "$archive_name")")
+  fi
+done
 
 xcodebuild -create-xcframework \
-     -framework build/Release/OpenCCBridge.framework \
-     -framework build/UninstalledProducts/iphoneos/OpenCCBridge.framework \
-     -framework build/UninstalledProducts/iphonesimulator/OpenCCBridge.framework \
-     -framework build/Release-appletvos/OpenCCBridge.framework \
-     -framework build/Release-appletvsimulator/OpenCCBridge.framework \
-     -output OpenCCBridge.xcframework
+  "${xcframework_args[@]}" \
+  -output "$OUTPUT_PATH"
